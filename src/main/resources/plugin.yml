@@ -1,3 +1,15 @@
 main: ${mainClass}
 name: ${name}
 version: ${version}
+api-version: 1.13
+commands:
+  clues:
+permissions:
+  cluefinder.*:
+    default: op
+    description: Enables access to all commands and subcommands
+    children:
+      cluefinder.tp: true
+  cluefinder.tp:
+    default: op
+    description: Allows ability to teleport to clues

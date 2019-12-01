@@ -3,14 +3,14 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.ruinscraft</groupId>
-	<artifactId>permissiontimer</artifactId>
+	<artifactId>cluefinder</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>PermissionTimer</name>
+	<name>ClueFinder</name>
 
 	<properties>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
-		<mainClass>com.ruinscraft.permissiontimer.PermissionTimer</mainClass>
+		<mainClass>com.ruinscraft.cluefinder.ClueFinder</mainClass>
 		<jar.finalName>${project.name}-${project.version}</jar.finalName>
 	</properties>
 
@@ -35,7 +35,7 @@
 		<dependency>
 			<groupId>me.lucko.luckperms</groupId>
 			<artifactId>luckperms-api</artifactId>
-			<version>4.2</version>
+			<version>4.4</version>
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>

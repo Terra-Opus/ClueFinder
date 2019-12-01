@@ -1,0 +1,22 @@
+menuTitle: "View your clues, and try to find some!"
+nearby: "This clue is slightly close to you!"
+foundItem: "GREEN_CONCRETE"
+nearItem: "LIME_CONCRETE"
+unfoundItem: "YELLOW_CONCRETE"
+clues:
+  clue1:
+    title: "1: Just got this new Lamborghini here"
+    permission: "test.test"
+    found: "&dYou discovered &eTai Lopez&d!"
+    reward: "&dYour reward is the &euhhhhh &dPowder! Try it with /powder uhhhhh"
+    x: -832
+    y: 64
+    z: -2316
+  clue2:
+    title: "2:: Just got this new Lamborghingfdgdgdfi here"
+    permission: "test.test"
+    found: "&dYou discovered &eTai Lopezzdzzdz&d!"
+    reward: "&dYour reward is the &euhhhhh &dPowder! Try it with /powder uhhhhh"
+    x: 832
+    y: 64
+    z: -2316
