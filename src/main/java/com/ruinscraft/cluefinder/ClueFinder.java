@@ -43,14 +43,17 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 	private Material nearItem;
 	private Material unfoundItem;
 
+	// get an instance of the plugin
 	public static ClueFinder get() {
 		return clueFinder;
 	}
 
 	@Override
 	public void onEnable() {
+		// sets the instance of the plugin to this instance
 		clueFinder = this;
 
+		// load LuckPerms
 		RegisteredServiceProvider<LuckPermsApi> provider = 
 				Bukkit.getServicesManager().getRegistration(LuckPermsApi.class);
 		if (provider != null) {
@@ -61,13 +64,17 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 			Bukkit.getPluginManager().disablePlugin(this);
 		}
 
+		// creates the list of Clues to be used
 		this.clues = new ArrayList<>();
 
+		// registers command and events to watch for within this class
 		getCommand("clues").setExecutor(this);
 		this.getServer().getPluginManager().registerEvents(this, this);
 
+		// loads the default config if a config isn't already there
 		this.saveDefaultConfig();
 
+		// sets some values from the config
 		this.menuTitle = this.getConfig().getString("menuTitle", "Menu");
 		this.nearby = this.getConfig().getString("nearby", "Near");
 		this.viewClues = this.getConfig().getString("viewClues", "See your clues: /clues");
@@ -76,13 +83,16 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 		this.nearItem = Material.valueOf(this.getConfig().getString("nearItem", "LIME_CONCRETE"));
 		this.unfoundItem = Material.valueOf(this.getConfig().getString("unfoundItem", "YELLOW_CONCRETE"));
 
+		// loads clues
 		loadClues();
 
+		// runs a timer every 6 seconds to go through every player and check if they are near to a clue
 		this.getServer().getScheduler().runTaskTimer(this, () -> {
 			List<Player> players = new ArrayList<>(this.getServer().getWorlds().get(0).getPlayers());
 			for (Player player : players) {
 				Location location = player.getLocation();
 				for (Clue clue : this.clues) {
+					// if close enough to clue and hasn't found it yet, yay clue found
 					if (clue.getLocation().distanceSquared(location) < 64) {
 						if (!hasPermission(clue.getPermission(), player)) {
 							clueFound(player, clue);
@@ -91,25 +101,30 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 				}
 			}
 
-		}, 0, 120);
+		}, 0, 120); // (20 * 6)
 	}
 
+	@Override
 	public void onDisable() {
 		clueFinder = null;
 	}
 
+	// lore added to an item to say that a clue is nearby
 	public String getNearbyString() {
 		return nearby;
 	}
 
+	// title of the /clues menu
 	public String getMenuTitle() {
 		return menuTitle;
 	}
 
+	// get all clues
 	public List<Clue> getClues() {
 		return clues;
 	}
 
+	// loads all of the clues as Clue objects on init, and adds them to the clues list
 	public void loadClues() {
 		FileConfiguration config = this.getConfig();
 		for (String section : config.getConfigurationSection("clues").getKeys(false)) {
@@ -127,7 +142,7 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 			int z = config.getInt(whole + ".z", 0);
 			Clue clue = new Clue(title, found, reward, permission, x, y, z);
 
-			clues.add(clue);
+			this.clues.add(clue);
 		}
 	}
 
@@ -145,18 +160,22 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 		return false;
 	}
 
+	// run if someone finds a clue
 	public void clueFound(Player player, Clue clue) {
 		player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1, 1);
 		player.sendMessage(clue.getFound());
 		player.sendMessage(clue.getReward());
+		// once the clue is found, the permission of the clue is set, and they can never find it again
 		setPermission(clue.getPermission(), player);
 		player.sendMessage(this.viewClues);
 
 		if (hasAllClues(player)) {
+			// this shouldnt be hard coded but i had to rush it also its broken
 			player.sendMessage(ChatColor.GOLD + "AHHHHH!!!!!!");
 			player.sendMessage(ChatColor.YELLOW + "You found all of the clues!");
 			player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 1, 1);
 			ItemStack shulker = new ItemStack(Material.RED_SHULKER_BOX, 1);
+
 			player.getInventory().addItem(shulker);
 			ItemStack gold = new ItemStack(Material.GOLD_INGOT, 64);
 			for (int i = 0; i < 36; i++) {
@@ -167,6 +186,7 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 		}
 	}
 
+	// checks if someone has all clues
 	public boolean hasAllClues(Player player) {
 		for (Clue clue : getClues()) {
 			if (!hasPermission(clue.getPermission(), player)) {
@@ -176,16 +196,18 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 		return true;
 	}
 
+	// if player explicitly has the permission, not if they are OP or whatever
 	public boolean hasPermission(String permission, Player player) {
 		for (PermissionAttachmentInfo info : player.getEffectivePermissions()) {
 			if (permission.equals(info.getPermission())) {
 				return true;
 			}
 		}
-		
+
 		return false;
 	}
 
+	// sets permission for user using luckperms api
 	public boolean setPermission(String permission, Player player) {
 		User user = luckPermsApi.getUser(player.getName());
 		Node node = luckPermsApi.buildNode(permission).setValue(true).build();
@@ -196,6 +218,7 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 		return false;
 	}
 
+	// command handler, runs whenever user types command
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 		if (!(sender instanceof Player)) return false;
@@ -215,7 +238,10 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 			}
 		}
 
+		// if not a subcommand, then we're gonna open the clues menu
+
 		Inventory inventory = Bukkit.createInventory(null, 36, this.menuTitle);
+		// cycles through clues to create each item for the inventory
 		for (Clue clue : getClues()) {
 			Material typeOfClue = null;
 			if (hasPermission(clue.getPermission(), player)) {
@@ -245,6 +271,7 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 			inventory.addItem(clueItem);
 		}
 
+		// paper item in the last slot
 		ItemStack paper = new ItemStack(Material.PAPER, 1);
 		ItemMeta meta = paper.getItemMeta();
 		meta.setDisplayName("What happens when you find all of them?");
@@ -252,10 +279,12 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 		inventory.setItem(35, paper);
 
 		player.openInventory(inventory);
-		
+
 		return true;
 	}
 
+	// prevents players from taking the items inside the inventory
+	// also closes inventory if they click outside the main box
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onInventoryClick(InventoryClickEvent event) {
 		if (event.getInventory() == null) return;
