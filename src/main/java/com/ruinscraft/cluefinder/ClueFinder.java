@@ -174,15 +174,22 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 			player.sendMessage(ChatColor.GOLD + "AHHHHH!!!!!!");
 			player.sendMessage(ChatColor.YELLOW + "You found all of the clues!");
 			player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 1, 1);
-			ItemStack shulker = new ItemStack(Material.RED_SHULKER_BOX, 1);
+			player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1, 1);
+			ItemStack endstone = new ItemStack(Material.END_STONE, 24);
+			player.getWorld().dropItemNaturally(player.getLocation(), endstone);
+			ItemStack purpur = new ItemStack(Material.PURPUR_BLOCK, 24);
+			player.getWorld().dropItemNaturally(player.getLocation(), purpur);
+			ItemStack chorus = new ItemStack(Material.CHORUS_FRUIT, 6);
+			player.getWorld().dropItemNaturally(player.getLocation(), chorus);
 
-			player.getInventory().addItem(shulker);
 			ItemStack gold = new ItemStack(Material.GOLD_INGOT, 64);
-			for (int i = 0; i < 36; i++) {
-				player.getInventory().addItem(gold);
+			for (int i = 0; i < 35; i++) {
+				player.getWorld().dropItemNaturally(player.getLocation(), gold);
 			}
 			setPermission("powder.powder.rainbowcolumn", player);
 			player.sendMessage(ChatColor.LIGHT_PURPLE + "You've been given the RainbowColumn Powder! /powder RainbowColumn");
+
+			player.getServer().broadcastMessage(ChatColor.YELLOW + player.getName() + " discovered all of the clues!!");
 		}
 	}
 
