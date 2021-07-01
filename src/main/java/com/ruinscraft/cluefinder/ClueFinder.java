@@ -275,6 +275,8 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 				player.getWorld().dropItemNaturally(player.getLocation(), gold);
 			}
 
+			player.getWorld().dropItemNaturally(player.getLocation(), new ItemStack(Material.NETHERITE_BLOCK, 1));
+
 			player.getServer().broadcastMessage(ChatColor.YELLOW + player.getName() + " discovered all of the clues!!");
 		}
 	}
