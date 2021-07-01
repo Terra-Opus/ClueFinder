@@ -20,6 +20,10 @@
 			<url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
 		</repository>
 		<repository>
+			<id>papermc</id>
+			<url>https://papermc.io/repo/repository/maven-public/</url>
+		</repository>
+		<repository>
 			<id>maven-central</id>
 			<url>http://repo1.maven.org/maven2/</url>
 		</repository>
@@ -27,15 +31,15 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.spigotmc</groupId>
-			<artifactId>spigot-api</artifactId>
-			<version>1.13.2-R0.1-SNAPSHOT</version>
+			<groupId>com.destroystokyo.paper</groupId>
+			<artifactId>paper-api</artifactId>
+			<version>1.16.5-R0.1-SNAPSHOT</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>me.lucko.luckperms</groupId>
-			<artifactId>luckperms-api</artifactId>
-			<version>4.4</version>
+			<groupId>net.luckperms</groupId>
+			<artifactId>api</artifactId>
+			<version>5.3</version>
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>

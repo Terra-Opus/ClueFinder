@@ -2,11 +2,17 @@ package com.ruinscraft.cluefinder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Sound;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.TextColor;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.node.Node;
+import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -23,30 +29,31 @@ import org.bukkit.permissions.PermissionAttachmentInfo;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import me.lucko.luckperms.api.LuckPermsApi;
-import me.lucko.luckperms.api.Node;
-import me.lucko.luckperms.api.User;
 import net.md_5.bungee.api.ChatColor;
 
 public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor {
 
-	private LuckPermsApi luckPermsApi;
+	private LuckPerms luckPerms;
 
 	private static ClueFinder clueFinder;
 
 	private String menuTitle;
 	private String nearby;
+	private String notAllowedTitle;
 	private String viewClues;
 	private List<Clue> clues;
 
 	private Material foundItem;
 	private Material nearItem;
 	private Material unfoundItem;
+	private Material notAllowedItem;
 
 	// get an instance of the plugin
 	public static ClueFinder get() {
 		return clueFinder;
 	}
+
+	private Random random = new Random();
 
 	@Override
 	public void onEnable() {
@@ -54,11 +61,11 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 		clueFinder = this;
 
 		// load LuckPerms
-		RegisteredServiceProvider<LuckPermsApi> provider = 
-				Bukkit.getServicesManager().getRegistration(LuckPermsApi.class);
+		RegisteredServiceProvider<LuckPerms> provider =
+				Bukkit.getServicesManager().getRegistration(LuckPerms.class);
 		if (provider != null) {
 			getLogger().info("LuckPerms found!");
-			luckPermsApi = provider.getProvider();
+			luckPerms = provider.getProvider();
 		} else {
 			getLogger().info("LuckPerms not found! Disabling.");
 			Bukkit.getPluginManager().disablePlugin(this);
@@ -77,11 +84,13 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 		// sets some values from the config
 		this.menuTitle = this.getConfig().getString("menuTitle", "Menu");
 		this.nearby = this.getConfig().getString("nearby", "Near");
+		this.notAllowedTitle = this.getConfig().getString("notAllowedTitle", "Find other clues before this one!");
 		this.viewClues = this.getConfig().getString("viewClues", "See your clues: /clues");
 		this.viewClues = ChatColor.translateAlternateColorCodes('&', this.viewClues);
 		this.foundItem = Material.valueOf(this.getConfig().getString("foundItem", "GREEN_CONCRETE"));
 		this.nearItem = Material.valueOf(this.getConfig().getString("nearItem", "LIME_CONCRETE"));
 		this.unfoundItem = Material.valueOf(this.getConfig().getString("unfoundItem", "YELLOW_CONCRETE"));
+		this.notAllowedItem = Material.valueOf(this.getConfig().getString("notAllowedItem", "BARRIER"));
 
 		// loads clues
 		loadClues();
@@ -94,14 +103,58 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 				for (Clue clue : this.clues) {
 					// if close enough to clue and hasn't found it yet, yay clue found
 					if (clue.getLocation().distanceSquared(location) < 64) {
-						if (!hasPermission(clue.getPermission(), player)) {
-							clueFound(player, clue);
+						if (clue.getPermissionNeeded() != null && hasPermission(clue.getPermissionNeeded(), player)) {
+							if (!hasPermission(clue.getPermissionGiven(), player)) {
+								clueFound(player, clue);
+							}
 						}
 					}
 				}
 			}
+		}, 10, 20 * 5);
 
-		}, 0, 120); // (20 * 6)
+		// redstone colors for particles below
+		Particle.DustOptions dustOptions = new Particle.DustOptions(org.bukkit.Color.fromRGB(128, 128, 128), 2);
+		Particle.DustOptions notFoundClue = new Particle.DustOptions(org.bukkit.Color.fromRGB(250, 220, 0), 5);
+		Particle.DustOptions foundClue = new Particle.DustOptions(org.bukkit.Color.fromRGB(40, 180, 60), 5);
+		Particle.DustOptions foundAllClue = new Particle.DustOptions(org.bukkit.Color.fromRGB(254, 0, 0), 5);
+
+		// cool particles around the clues
+		this.getServer().getScheduler().runTaskTimer(this, () -> {
+			List<Player> players = new ArrayList<>(this.getServer().getWorlds().get(0).getPlayers());
+			double xDiff = (this.random.nextDouble() * 8) - 4;
+			double yDiff = (this.random.nextDouble() * 5) - 2.5;
+			double zDiff = (this.random.nextDouble() * 8) - 4;
+
+			double xDiffCenter = this.random.nextDouble() - .5;
+			double yDiffCenter = (this.random.nextDouble() * 6) - 3;
+			double zDiffCenter = this.random.nextDouble() - .5;
+			for (Player player : players) {
+				for (Clue clue : this.clues) {
+					Location clueLocation = clue.getLocation();
+					if (player.getLocation().distanceSquared(clueLocation) > 900) { // around 30 block distance
+						continue;
+					}
+					if (clue.getPermissionNeeded() == null
+							|| hasPermission(clue.getPermissionNeeded(), player)
+							|| hasPermission(clue.getPermissionGiven(), player)) {
+						// if close enough to clue and hasn't found it yet, yay clue found
+						player.spawnParticle(Particle.REDSTONE,
+								clueLocation.clone().add(xDiff, yDiff, zDiff), 1, dustOptions);
+						if (hasAllClues(player)) {
+							player.spawnParticle(Particle.REDSTONE,
+									clueLocation.clone().add(xDiffCenter, yDiffCenter, zDiffCenter), 1, foundAllClue);
+						} else if (hasPermission(clue.getPermissionGiven(), player)) {
+							player.spawnParticle(Particle.REDSTONE,
+									clueLocation.clone().add(xDiffCenter, yDiffCenter, zDiffCenter), 1, foundClue);
+						} else {
+							player.spawnParticle(Particle.REDSTONE,
+									clueLocation.clone().add(xDiffCenter, yDiffCenter, zDiffCenter), 1, notFoundClue);
+						}
+					}
+				}
+			}
+		}, 10, 1);
 	}
 
 	@Override
@@ -136,11 +189,13 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 			found = ChatColor.translateAlternateColorCodes('&', found);
 			String reward = config.getString(whole + ".reward", "Reward");
 			reward = ChatColor.translateAlternateColorCodes('&', reward);
-			String permission = config.getString(whole + ".permission", "Permission");
+			String permGiven = config.getString(whole + ".permission", "Permission");
+			String permNeeded = config.getString(whole + ".needPermission", null);
+			String extraInfo = config.getString(whole + ".foundDesc", null);
 			int x = config.getInt(whole + ".x", 0);
 			int y = config.getInt(whole + ".y", 64);
 			int z = config.getInt(whole + ".z", 0);
-			Clue clue = new Clue(title, found, reward, permission, x, y, z);
+			Clue clue = new Clue(title, found, reward, permGiven, x, y, z, permNeeded, extraInfo);
 
 			this.clues.add(clue);
 		}
@@ -163,16 +218,18 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 	// run if someone finds a clue
 	public void clueFound(Player player, Clue clue) {
 		player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1, 1);
-		player.sendMessage(clue.getFound());
-		player.sendMessage(clue.getReward());
+		player.sendMessage(clue.getFoundMessage());
+		if (clue.getExtraInfo() != null) {
+			player.sendMessage(ChatColor.GRAY + clue.getExtraInfo());
+		}
+		player.sendMessage(clue.getRewardMessage());
 		// once the clue is found, the permission of the clue is set, and they can never find it again
-		setPermission(clue.getPermission(), player);
+		setPermission(clue.getPermissionGiven(), player);
 		player.sendMessage(this.viewClues);
 
-		if (hasAllClues(player)) {
+		if (hasAllClues(player) && !player.hasPermission("clues.tp")) {
 			// this shouldnt be hard coded but i had to rush it also its broken
-			player.sendMessage(ChatColor.GOLD + "AHHHHH!!!!!!");
-			player.sendMessage(ChatColor.YELLOW + "You found all of the clues!");
+			player.sendMessage(ChatColor.YELLOW + "You found all of the clues!!!!!!");
 			player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 1, 1);
 			player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1, 1);
 			ItemStack endstone = new ItemStack(Material.END_STONE, 24);
@@ -196,14 +253,18 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 	// checks if someone has all clues
 	public boolean hasAllClues(Player player) {
 		for (Clue clue : getClues()) {
-			if (!hasPermission(clue.getPermission(), player)) {
+			if (!hasPermission(clue.getPermissionGiven(), player)) {
 				return false;
 			}
 		}
 		return true;
 	}
 
-	// if player explicitly has the permission, not if they are OP or whatever
+	// if player explicitly has the permission, not if they are OP or have a * permission
+	// example: powders.powder.Songs gives perm for all songs.
+	// Player#hasPermission would return true for an individual song
+	// this would not
+	// necessary so sponsors can participate in powder hunt
 	public boolean hasPermission(String permission, Player player) {
 		for (PermissionAttachmentInfo info : player.getEffectivePermissions()) {
 			if (permission.equals(info.getPermission())) {
@@ -216,13 +277,10 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 
 	// sets permission for user using luckperms api
 	public boolean setPermission(String permission, Player player) {
-		User user = luckPermsApi.getUser(player.getName());
-		Node node = luckPermsApi.buildNode(permission).setValue(true).build();
-		if (user.setPermission(node).asBoolean()) {
-			luckPermsApi.getUserManager().saveUser(user);
-			return true;
-		}
-		return false;
+		User user = luckPerms.getUserManager().getUser(player.getUniqueId());
+		user.data().add(Node.builder(permission).build());
+		luckPerms.getUserManager().saveUser(user);
+		return true;
 	}
 
 	// command handler, runs whenever user types command
@@ -232,26 +290,40 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 		Player player = (Player) sender;
 
 		// open inventory with menuTitle
-		if (args.length > 0) {
+		if (args.length > 1) {
 			if (args[0].equalsIgnoreCase("tp") && player.hasPermission("cluefinder.tp")) {
 				int clueNum;
 				try {
 					clueNum = Integer.valueOf(args[1]);
 				} catch (Exception e) { clueNum = 1; }
 				Clue clue = getClues().get(clueNum - 1);
-				player.teleport(clue.getLocation());
-				player.sendMessage("Teleported to clue " + clueNum + "!");
+				player.teleport(clue.getLocation().clone().add(10, 0, 10));
+				player.sendMessage("Teleported near clue " + clueNum + "!");
 				return true;
 			}
 		}
 
 		// if not a subcommand, then we're gonna open the clues menu
 
-		Inventory inventory = Bukkit.createInventory(null, 36, this.menuTitle);
+		Inventory inventory = Bukkit.createInventory(null, 45, this.menuTitle);
 		// cycles through clues to create each item for the inventory
+		int i = 0;
 		for (Clue clue : getClues()) {
+			i++;
+			if (clue.getPermissionNeeded() != null && !hasPermission(clue.getPermissionNeeded(), player) && !hasPermission(clue.getPermissionGiven(), player)) {
+				ItemStack clueItem = new ItemStack(this.notAllowedItem, 1);
+				ItemMeta meta = clueItem.getItemMeta();
+				TextComponent textComponent = Component.text(i + ": " + this.notAllowedTitle)
+						.color(TextColor.color(0xFF0000));
+				meta.displayName(textComponent);
+				clueItem.setItemMeta(meta);
+				inventory.addItem(clueItem);
+				continue;
+			}
+
 			Material typeOfClue = null;
-			if (hasPermission(clue.getPermission(), player)) {
+
+			if (hasPermission(clue.getPermissionGiven(), player)) {
 				typeOfClue = this.foundItem;
 			} else if (this.isNearClue(player.getLocation(), clue.getLocation())) {
 				typeOfClue = this.nearItem;
@@ -262,11 +334,29 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 			ItemStack clueItem = new ItemStack(typeOfClue, 1);
 
 			ItemMeta meta = clueItem.getItemMeta();
-			meta.setDisplayName(clue.getTitle());
+			TextComponent titleText = Component.text(clue.getTitle());
+			meta.displayName(titleText);
 			if (typeOfClue == this.foundItem) {
 				List<String> lore = new ArrayList<>();
-				lore.add(clue.getFound());
-				lore.add(clue.getReward());
+				lore.add(clue.getFoundMessage());
+				if (clue.getExtraInfo() != null) {
+					// code from stackoverflow
+					// splits lore into shorter parts, separated by space
+					int maxLength = 50;
+					Pattern p = Pattern.compile("\\G\\s*(.{1,"+maxLength+"})(?=\\s|$)", Pattern.DOTALL);
+					Matcher m = p.matcher(clue.getExtraInfo());
+					while (m.find()) {
+						String lorePart = m.group(1);
+						lore.add(lorePart);
+					}
+				}
+				int maxLength = 50;
+				Pattern p = Pattern.compile("\\G\\s*(.{1,"+maxLength+"})(?=\\s|$)", Pattern.DOTALL);
+				Matcher m = p.matcher(clue.getRewardMessage());
+				while (m.find()) {
+					String lorePart = m.group(1);
+					lore.add(lorePart);
+				}
 				meta.setLore(lore);
 			} else if (typeOfClue == this.nearItem) {
 				List<String> lore = new ArrayList<>();
@@ -278,12 +368,23 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 			inventory.addItem(clueItem);
 		}
 
+		// glass at the bottom
+		ItemStack glass = new ItemStack(Material.WHITE_STAINED_GLASS_PANE, 1);
+		ItemMeta glassItemMeta = glass.getItemMeta();
+		TextComponent titleText = Component.text("");
+		glassItemMeta.displayName(titleText);
+		glass.setItemMeta(glassItemMeta);
+		int[] slots = { 36, 37, 38, 39, 41, 42, 43, 44 };
+		for (int slot : slots) {
+			inventory.setItem(slot, glass);
+		}
+
 		// paper item in the last slot
 		ItemStack paper = new ItemStack(Material.PAPER, 1);
 		ItemMeta meta = paper.getItemMeta();
-		meta.setDisplayName("What happens when you find all of them?");
+		meta.setDisplayName("What happens when you find all the clues?");
 		paper.setItemMeta(meta);
-		inventory.setItem(35, paper);
+		inventory.setItem(40, paper);
 
 		player.openInventory(inventory);
 
@@ -295,7 +396,11 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onInventoryClick(InventoryClickEvent event) {
 		if (event.getInventory() == null) return;
-		if (event.getInventory().getTitle().equals(this.menuTitle)) {
+
+		String title = event.getView().title().toString();
+		title = title.substring(title.indexOf("content=") + 9, title.indexOf("\", "));
+
+		if (title.equals(this.menuTitle)) {
 			if (event.getClickedInventory() == null) {
 				event.getWhoClicked().closeInventory();
 			} else {
