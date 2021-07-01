@@ -1,6 +1,8 @@
 package com.ruinscraft.cluefinder;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.regex.Matcher;
@@ -17,12 +19,14 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.permissions.PermissionAttachmentInfo;
@@ -103,7 +107,8 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 				for (Clue clue : this.clues) {
 					// if close enough to clue and hasn't found it yet, yay clue found
 					if (clue.getLocation().distanceSquared(location) < 64) {
-						if (clue.getPermissionNeeded() != null && hasPermission(clue.getPermissionNeeded(), player)) {
+						if (clue.getPermissionNeeded() == null ||
+								(clue.getPermissionNeeded() != null && hasPermission(clue.getPermissionNeeded(), player))) {
 							if (!hasPermission(clue.getPermissionGiven(), player)) {
 								clueFound(player, clue);
 							}
@@ -135,7 +140,7 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 					if (player.getLocation().distanceSquared(clueLocation) > 900) { // around 30 block distance
 						continue;
 					}
-					if (clue.getPermissionNeeded() == null
+					if (clue.getPermissionNeeded() == null || clue.getPermissionNeeded().equals("")
 							|| hasPermission(clue.getPermissionNeeded(), player)
 							|| hasPermission(clue.getPermissionGiven(), player)) {
 						// if close enough to clue and hasn't found it yet, yay clue found
@@ -228,26 +233,65 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 		player.sendMessage(this.viewClues);
 
 		if (hasAllClues(player) && !player.hasPermission("clues.tp")) {
+			int rank = getConfig().getInt("numOfPeopleFinished", 0);
+			rank++;
+			getConfig().set("numOfPeopleFinished", rank);
+			saveConfig();
+
 			// this shouldnt be hard coded but i had to rush it also its broken
 			player.sendMessage(ChatColor.YELLOW + "You found all of the clues!!!!!!");
 			player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 1, 1);
 			player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1, 1);
-			ItemStack endstone = new ItemStack(Material.END_STONE, 24);
-			player.getWorld().dropItemNaturally(player.getLocation(), endstone);
-			ItemStack purpur = new ItemStack(Material.PURPUR_BLOCK, 24);
-			player.getWorld().dropItemNaturally(player.getLocation(), purpur);
-			ItemStack chorus = new ItemStack(Material.CHORUS_FRUIT, 6);
-			player.getWorld().dropItemNaturally(player.getLocation(), chorus);
+
+			ItemStack customItem = new ItemStack(Material.NETHERITE_SWORD, 1);
+			ItemMeta meta = customItem.getItemMeta();
+			TextComponent textComponent = Component.text("MCATLAS 2 Year Anniversary Powder Hunt #" + rank)
+					.color(TextColor.color(0x00FF00));
+			meta.displayName(textComponent);
+
+			String rankString = getSuffix(rank) + " player to find all the clues!";
+			List<String> lore = new ArrayList<>();
+			lore.add(rankString);
+			meta.setLore(lore);
+
+			meta.addEnchant(Enchantment.DAMAGE_ALL, 5, true);
+			meta.addEnchant(Enchantment.FIRE_ASPECT, 3, true);
+			meta.addEnchant(Enchantment.SWEEPING_EDGE, 3, true);
+
+			customItem.setItemMeta(meta);
+
+			customItem.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+			customItem.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+
+			if (!player.getInventory().addItem(customItem).isEmpty()) {
+				player.getWorld().dropItemNaturally(player.getLocation(), customItem);
+			}
+
+			ItemStack goldBlock = new ItemStack(Material.GOLD_BLOCK, 64);
+			player.getWorld().dropItemNaturally(player.getLocation(), goldBlock);
 
 			ItemStack gold = new ItemStack(Material.GOLD_INGOT, 64);
-			for (int i = 0; i < 35; i++) {
+			for (int i = 0; i < 20; i++) {
 				player.getWorld().dropItemNaturally(player.getLocation(), gold);
 			}
-			setPermission("powder.powder.rainbowcolumn", player);
-			player.sendMessage(ChatColor.LIGHT_PURPLE + "You've been given the RainbowColumn Powder! /powder RainbowColumn");
 
 			player.getServer().broadcastMessage(ChatColor.YELLOW + player.getName() + " discovered all of the clues!!");
 		}
+	}
+
+	public String getSuffix(int num) {
+		int j = num % 10;
+		int k = num % 100;
+		if (j == 1 && k != 11) {
+			return num + "st";
+		}
+		if (j == 2 && k != 12) {
+			return num + "nd";
+		}
+		if (j == 3 && k != 13) {
+			return num + "rd";
+		}
+		return num + "th";
 	}
 
 	// checks if someone has all clues

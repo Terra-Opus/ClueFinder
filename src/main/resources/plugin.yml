@@ -4,6 +4,7 @@ version: ${version}
 api-version: 1.13
 commands:
   clues:
+    permission: cluefinder.clues
 permissions:
   cluefinder.*:
     default: op
