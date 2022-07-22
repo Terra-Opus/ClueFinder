@@ -209,7 +209,7 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 	// within 8 blocks
 	public boolean isAtClue(Location player, Location clue) {
 		if (player.getWorld() != this.getServer().getWorlds().get(0)) return false;
-		if (player.distanceSquared(clue) <= 64) return true;
+		if (player.distanceSquared(clue) <= 12) return true;
 		return false;
 	}
 
@@ -241,41 +241,6 @@ public class ClueFinder extends JavaPlugin implements Listener, CommandExecutor 
 			// this shouldnt be hard coded but i had to rush it also its broken
 			player.sendMessage(ChatColor.YELLOW + "You found all of the clues!!!!!!");
 			player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 1, 1);
-			player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1, 1);
-
-			ItemStack customItem = new ItemStack(Material.NETHERITE_SWORD, 1);
-			ItemMeta meta = customItem.getItemMeta();
-			TextComponent textComponent = Component.text("MCATLAS 2 Year Anniversary Powder Hunt #" + rank)
-					.color(TextColor.color(0x00FF00));
-			meta.displayName(textComponent);
-
-			String rankString = getSuffix(rank) + " player to find all the clues!";
-			List<String> lore = new ArrayList<>();
-			lore.add(rankString);
-			meta.setLore(lore);
-
-			meta.addEnchant(Enchantment.DAMAGE_ALL, 5, true);
-			meta.addEnchant(Enchantment.FIRE_ASPECT, 3, true);
-			meta.addEnchant(Enchantment.SWEEPING_EDGE, 3, true);
-
-			customItem.setItemMeta(meta);
-
-			customItem.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-			customItem.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
-			if (!player.getInventory().addItem(customItem).isEmpty()) {
-				player.getWorld().dropItemNaturally(player.getLocation(), customItem);
-			}
-
-			ItemStack goldBlock = new ItemStack(Material.GOLD_BLOCK, 64);
-			player.getWorld().dropItemNaturally(player.getLocation(), goldBlock);
-
-			ItemStack gold = new ItemStack(Material.GOLD_INGOT, 64);
-			for (int i = 0; i < 20; i++) {
-				player.getWorld().dropItemNaturally(player.getLocation(), gold);
-			}
-
-			player.getWorld().dropItemNaturally(player.getLocation(), new ItemStack(Material.NETHERITE_BLOCK, 1));
 
 			player.getServer().broadcastMessage(ChatColor.YELLOW + player.getName() + " discovered all of the clues!!");
 		}
