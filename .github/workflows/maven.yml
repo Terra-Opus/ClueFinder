@@ -23,4 +23,18 @@ jobs:
         distribution: 'temurin'
         cache: maven
     - name: Build with Maven
-      run: mvn clean install
+      run: mvn -B package --file pom.xml
+      
+    - name: List current directory
+      run: ls -a
+      
+    - name: check target folder
+      run: 
+        cd target; 
+        ls -a
+        
+    - name: Archive plugin jars on GitHub
+      uses: actions/upload-artifact@master
+      with:
+        name: Jars
+        path: target
